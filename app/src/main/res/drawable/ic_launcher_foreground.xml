@@ -1,0 +1,25 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- outer running track -->
+    <path
+        android:strokeColor="#FFFFFFFF"
+        android:strokeWidth="5"
+        android:fillColor="#00000000"
+        android:pathData="M45,35H63A19,19 0,0 1,63 73H45A19,19 0,0 1,45 35Z" />
+    <!-- inner lane -->
+    <path
+        android:strokeColor="#FFFFC9A8"
+        android:strokeWidth="2"
+        android:fillColor="#00000000"
+        android:pathData="M45,42H63A12,12 0,0 1,63 66H45A12,12 0,0 1,45 42Z" />
+    <!-- play button -->
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:strokeColor="#FFFFFFFF"
+        android:strokeWidth="2.5"
+        android:strokeLineJoin="round"
+        android:pathData="M50,48L60,54L50,60Z" />
+</vector>
