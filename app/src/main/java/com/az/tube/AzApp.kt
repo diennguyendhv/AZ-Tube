@@ -116,6 +116,21 @@ fun AzApp(vm: AppViewModel, player: Player?, inPip: Boolean) {
             showMenu = { menuFor = it },
             isSubscribed = { vm.isSubscribed(it) },
             toggleSubscribe = { vm.toggleSubscribe(it) },
+            blockChannel = { v ->
+                val url = v.channelUrl
+                if (url != null) {
+                    Blocked.block(ChannelItem(url, v.channel, v.channelAvatar))
+                    // Drop this channel's videos still waiting in the queue (the one playing keeps playing).
+                    player?.let { p ->
+                        for (i in p.mediaItemCount - 1 downTo 0) {
+                            if (i == p.currentMediaItemIndex) continue
+                            val ch = p.getMediaItemAt(i).mediaMetadata.extras?.getString("channelUrl")
+                            if (Blocked.isBlocked(ch)) p.removeMediaItem(i)
+                        }
+                    }
+                    vm.message = "Sẽ không đề xuất kênh ${v.channel} nữa. Bỏ chặn trong tab Bạn"
+                }
+            },
         )
     }
 

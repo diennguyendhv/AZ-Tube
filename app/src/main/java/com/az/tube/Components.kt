@@ -61,6 +61,7 @@ class UiActions(
     val showMenu: (VideoItem) -> Unit,
     val isSubscribed: (String?) -> Boolean,
     val toggleSubscribe: (ChannelItem) -> Unit,
+    val blockChannel: (VideoItem) -> Unit,
 )
 
 val LocalActions = compositionLocalOf<UiActions> { error("UiActions not provided") }
@@ -304,8 +305,8 @@ fun PlaylistCard(p: PlaylistItem) {
 @Composable
 fun EntryView(entry: Entry, onVideo: (VideoItem) -> Unit) {
     when (entry) {
-        is VideoItem -> VideoCard(entry) { onVideo(entry) }
-        is ChannelItem -> ChannelResultRow(entry)
+        is VideoItem -> if (!Blocked.isBlocked(entry.channelUrl)) VideoCard(entry) { onVideo(entry) }
+        is ChannelItem -> if (!Blocked.isBlocked(entry.url)) ChannelResultRow(entry)
         is PlaylistItem -> PlaylistCard(entry)
     }
 }
@@ -391,6 +392,9 @@ fun VideoMenuSheet(video: VideoItem, onDismiss: () -> Unit) {
                 MenuRow(AppIcons.Person, "Đi tới kênh") { actions.openChannel(video.channelUrl, video.channel); onDismiss() }
             }
             MenuRow(AppIcons.Share, "Chia sẻ") { actions.share(video.url); onDismiss() }
+            if (video.channelUrl != null) {
+                MenuRow(AppIcons.Block, "Không đề xuất kênh này") { actions.blockChannel(video); onDismiss() }
+            }
         }
     }
 }

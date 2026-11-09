@@ -194,6 +194,29 @@ fun LibraryScreen(vm: AppViewModel, onQuality: () -> Unit) {
                     SubscribeButton(ch)
                 }
             }
+            if (Blocked.channels.isNotEmpty()) {
+                item {
+                    Spacer(Modifier.height(8.dp))
+                    HorizontalDivider()
+                    Text(
+                        "Kênh không đề xuất (${Blocked.channels.size})",
+                        Modifier.padding(16.dp),
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                    )
+                }
+                items(Blocked.channels, key = { "blk" + it.url }) { ch ->
+                    Row(
+                        Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Avatar(ch.avatar, 40.dp)
+                        Spacer(Modifier.width(16.dp))
+                        Text(ch.name, Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        TextButton(onClick = { Blocked.unblock(ch.url) }) { Text("Bỏ chặn", color = MaterialTheme.colorScheme.secondary) }
+                    }
+                }
+            }
             item {
                 Spacer(Modifier.height(16.dp))
                 HorizontalDivider()
@@ -284,6 +307,12 @@ fun ChannelScreen(vm: AppViewModel, route: Route.Channel) {
                             )
                         }
                         SubscribeButton(header.channel, Modifier.padding(16.dp).fillMaxWidth())
+                        if (Blocked.isBlocked(header.channel.url)) {
+                            CenterMessage(
+                                "Bạn đã chọn không đề xuất kênh này nên video của kênh bị ẩn",
+                                action = "Bỏ chặn",
+                            ) { Blocked.unblock(header.channel.url) }
+                        }
                         Text("Video", Modifier.padding(horizontal = 16.dp, vertical = 8.dp), fontWeight = FontWeight.Bold)
                         HorizontalDivider()
                         Spacer(Modifier.height(8.dp))

@@ -85,7 +85,7 @@ class PlaybackService : MediaSessionService() {
         val current = p.currentMediaItem?.mediaId ?: return
         val related = StreamResolver.related[current] ?: return
         val inQueue = (0 until p.mediaItemCount).map { p.getMediaItemAt(it).mediaId }.toSet()
-        val next = related.firstOrNull { it.url !in played && it.url !in inQueue } ?: return
+        val next = related.firstOrNull { it.url !in played && it.url !in inQueue && !Blocked.isBlocked(it.channelUrl) } ?: return
         p.addMediaItem(Media.playable(next.toMediaItem()))
     }
 

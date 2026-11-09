@@ -20,6 +20,8 @@ import org.schabi.newpipe.extractor.playlist.PlaylistInfo
 import org.schabi.newpipe.extractor.search.SearchInfo
 import org.schabi.newpipe.extractor.services.youtube.linkHandler.YoutubeSearchQueryHandlerFactory
 import org.schabi.newpipe.extractor.stream.Description
+import org.schabi.newpipe.extractor.stream.StreamInfo
+import java.util.concurrent.ConcurrentHashMap
 
 /** One page of a list plus a way to get the next one. */
 class PageResult(
@@ -183,6 +185,32 @@ object Repo {
         PageResult(lists.flatten().filter { !it.isShort }.sortedByDescending { it.uploadMillis }, null)
     }
 
+    /** Each channel's video list, kept for 30 minutes so the watch page and autoplay share one request. */
+    private val channelVideoCache = ConcurrentHashMap<String, Pair<Long, List<VideoItem>>>()
+
+    private suspend fun channelVideos(channelUrl: String): List<VideoItem> {
+        val now = System.currentTimeMillis()
+        channelVideoCache[channelUrl]?.let { (at, list) -> if (now - at < 30 * 60_000L) return list }
+        val list = runCatching { channel(channelUrl).items.filterIsInstance<VideoItem>() }.getOrDefault(emptyList())
+        if (list.isNotEmpty()) channelVideoCache[channelUrl] = now to list
+        return list
+    }
+
+    /**
+     * Recommendations for a video: only videos from the same channel. Uses YouTube's related list
+     * first and, when it has fewer than 10 from this channel, fills up with the channel's newest videos.
+     */
+    suspend fun sameChannelVideos(info: StreamInfo): List<VideoItem> {
+        val key = Blocked.key(info.uploaderUrl)
+        if (key.isEmpty() || Blocked.isBlocked(info.uploaderUrl)) return emptyList()
+        val playable: (VideoItem) -> Boolean = { it.url != info.url && it.duration > 0 && !it.isShort }
+        val own = info.relatedItems.mapNotNull { it.toEntry() as? VideoItem }
+            .filter { Blocked.key(it.channelUrl) == key && playable(it) }
+        if (own.size >= 10) return own
+        val more = channelVideos(info.uploaderUrl).filter(playable)
+        return (own + more).distinctBy { it.url }
+    }
+
     suspend fun details(url: String): Details = withContext(Dispatchers.IO) {
         val info = InfoCache.get(url, maxAgeMs = 60 * 60_000L)
         val millis = try {
@@ -211,7 +239,7 @@ object Repo {
                 info.uploaderSubscriberCount,
                 info.isUploaderVerified,
             ),
-            related = info.relatedItems.toEntries(),
+            related = if (Store.recommendationsOn) sameChannelVideos(info) else emptyList(),
         )
     }
 }

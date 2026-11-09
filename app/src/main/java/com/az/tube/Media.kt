@@ -1,4 +1,4 @@
-package com.az.tube
+﻿package com.az.tube
 
 import android.content.Context
 import android.net.Uri
@@ -21,6 +21,10 @@ import org.schabi.newpipe.extractor.stream.DeliveryMethod
 import org.schabi.newpipe.extractor.stream.StreamInfo
 import org.schabi.newpipe.extractor.stream.StreamType
 import org.schabi.newpipe.extractor.stream.VideoStream
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 import java.io.IOException
 import java.util.concurrent.ConcurrentHashMap
 
@@ -81,8 +85,10 @@ object InfoCache {
  * Nothing from YouTube's ad system is ever requested, so there are no ads.
  */
 object StreamResolver {
-    /** Related videos for each resolved URL, used by autoplay when recommendations are on. */
+    /** Same-channel videos for each resolved URL, used by autoplay when recommendations are on. */
     val related = ConcurrentHashMap<String, List<VideoItem>>()
+
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     @Volatile
     var onResolved: ((String) -> Unit)? = null
@@ -92,7 +98,15 @@ object StreamResolver {
         if (info.streamType == StreamType.LIVE_STREAM || info.streamType == StreamType.AUDIO_LIVE_STREAM) {
             throw IOException("Chưa hỗ trợ phát trực tiếp (livestream)")
         }
-        related[url] = info.relatedItems.mapNotNull { it.toEntry() as? VideoItem }.filter { it.duration > 0 }
+        if (Store.recommendationsOn && Store.autoplay && !related.containsKey(url)) {
+            // Same-channel list for autoplay. May need the channel page, so load it off this thread.
+            scope.launch {
+                runCatching { Repo.sameChannelVideos(info) }.getOrNull()?.let {
+                    related[url] = it
+                    onResolved?.invoke(url)
+                }
+            }
+        }
 
         val audio = pickAudio(info.audioStreams) ?: throw IOException("Không tìm thấy luồng âm thanh")
         var mpd = YoutubeProgressiveDashManifestCreator.fromProgressiveStreamingUrl(

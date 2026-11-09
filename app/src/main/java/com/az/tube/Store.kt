@@ -27,16 +27,16 @@ object Store {
 
     // ----- Switches, all off by default -----
     var watchHistoryOn: Boolean
-        get() = sp.getBoolean("watch_history_on", false)
+        get() = sp.getBoolean("watch_history_on", true)
         set(v) = sp.edit { putBoolean("watch_history_on", v) }
 
     var searchHistoryOn: Boolean
-        get() = sp.getBoolean("search_history_on", false)
+        get() = sp.getBoolean("search_history_on", true)
         set(v) = sp.edit { putBoolean("search_history_on", v) }
 
     /** Recommended home feed, related videos, search suggestions. */
     var recommendationsOn: Boolean
-        get() = sp.getBoolean("recommendations_on", false)
+        get() = sp.getBoolean("recommendations_on", true)
         set(v) = sp.edit { putBoolean("recommendations_on", v) }
 
     /** Keep playing related videos after the queue ends (needs recommendations on). */
@@ -52,6 +52,10 @@ object Store {
     var subscriptions: List<ChannelItem>
         get() = readArray("subscriptions") { ChannelItem.fromJson(it) }
         set(v) = writeArray("subscriptions", v.map { it.toJson() })
+
+    var blockedChannels: List<ChannelItem>
+        get() = readArray("blocked_channels") { ChannelItem.fromJson(it) }
+        set(v) = writeArray("blocked_channels", v.map { it.toJson() })
 
     var watchHistory: List<VideoItem>
         get() = readArray("watch_history") { VideoItem.fromJson(it) }
