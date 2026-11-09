@@ -229,10 +229,10 @@ fun LibraryScreen(vm: AppViewModel, onQuality: () -> Unit) {
                 SwitchLine("Lịch sử tìm kiếm", "Lưu từ khoá đã tìm. Tắt sẽ xoá lịch sử đã lưu", vm.searchHistoryOn) { vm.setSearchHistory(it) }
                 SwitchLine("Đề xuất", "Trang chủ theo chủ đề và gợi ý khi tìm kiếm. Tắt thì trang chủ chỉ có video từ kênh đã đăng ký", vm.recommendationsOn) { vm.setRecommendations(it) }
                 SwitchLine("Tự động phát", "Hết hàng chờ thì phát tiếp video cùng kênh", vm.autoplay) { vm.changeAutoplay(it) }
-                SwitchLine("Khóa ứng dụng bằng mật khẩu", "Hỏi mật khẩu mỗi khi mở hoặc quay lại AZ Tube", AppLock.enabled) {
+                SwitchLine("Khóa ứng dụng bằng mã PIN", "Hỏi mã PIN mỗi khi mở hoặc quay lại AZ Tube", AppLock.enabled) {
                     lockDialog = if (it) LockDialog.Enable else LockDialog.Disable
                 }
-                if (AppLock.enabled) SettingLine("Đổi mật khẩu", "") { lockDialog = LockDialog.Change }
+                if (AppLock.enabled) SettingLine("Đổi mã PIN", "") { lockDialog = LockDialog.Change }
                 Spacer(Modifier.height(8.dp))
                 HorizontalDivider()
                 Text("Cài đặt", Modifier.padding(16.dp), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
@@ -241,6 +241,10 @@ fun LibraryScreen(vm: AppViewModel, onQuality: () -> Unit) {
                     vm.audioOnly = it
                     Store.audioOnly = it
                 }
+                Spacer(Modifier.height(8.dp))
+                HorizontalDivider()
+                Text("Cập nhật", Modifier.padding(16.dp), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                UpdateSettings(onMessage = { vm.message = it })
                 Spacer(Modifier.height(24.dp))
             }
         }

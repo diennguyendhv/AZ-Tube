@@ -23,6 +23,7 @@ import javax.crypto.spec.PBEKeySpec
  */
 object AppLock {
     const val MIN_LENGTH = 4
+    const val MAX_PIN = 8
     private const val ITERATIONS = 120_000
     private const val FREE_TRIES = 5
 
@@ -30,6 +31,13 @@ object AppLock {
 
     /** A password is set. */
     var enabled by mutableStateOf(false)
+        private set
+
+    /**
+     * Length of the PIN when the password is a number entered on the keypad, 0 for a text password
+     * set in version 1.2 (still accepted, typed with the keyboard).
+     */
+    var pinLength by mutableIntStateOf(0)
         private set
 
     /** The lock screen is showing. */
@@ -51,6 +59,7 @@ object AppLock {
     fun init(context: Context) {
         sp = context.getSharedPreferences("app_lock", Context.MODE_PRIVATE)
         enabled = sp.contains("hash")
+        pinLength = sp.getInt("pin_len", 0)
         locked = enabled
         failures = sp.getInt("failures", 0)
         // A wait that was running when the app was closed keeps running (at most 15 minutes).
@@ -111,8 +120,9 @@ object AppLock {
         return ok
     }
 
-    /** Sets or changes the password. Slow: call off the main thread. */
+    /** Sets or changes the PIN. Slow: call off the main thread. */
     fun setPassword(password: String) {
+        val pin = password.length in MIN_LENGTH..MAX_PIN && password.all { it in '0'..'9' }
         val salt = ByteArray(16).also { SecureRandom().nextBytes(it) }
         val hash = derive(password, salt, ITERATIONS)
         sp.edit {
@@ -120,7 +130,9 @@ object AppLock {
             putString("hash", encode(hash))
             putInt("iterations", ITERATIONS)
             putInt("failures", 0)
+            if (pin) putInt("pin_len", password.length) else remove("pin_len")
         }
+        pinLength = if (pin) password.length else 0
         failures = 0
         waitUntil = 0
         enabled = true
@@ -130,6 +142,7 @@ object AppLock {
     /** Turns the lock off (after the password or the phone's own screen lock was confirmed). */
     fun disable() {
         sp.edit { clear() }
+        pinLength = 0
         enabled = false
         locked = false
         failures = 0

@@ -44,6 +44,21 @@ object Store {
         get() = sp.getBoolean("autoplay", true)
         set(v) = sp.edit { putBoolean("autoplay", v) }
 
+    // ----- Updates -----
+    /** Ask GitHub for a newer version when the app opens (at most every 12 hours). */
+    var autoUpdateCheck: Boolean
+        get() = sp.getBoolean("auto_update_check", true)
+        set(v) = sp.edit { putBoolean("auto_update_check", v) }
+
+    var lastUpdateCheck: Long
+        get() = sp.getLong("last_update_check", 0L)
+        set(v) = sp.edit { putLong("last_update_check", v) }
+
+    /** A version the user chose "Để sau" for: not offered again automatically. */
+    var skippedUpdate: String
+        get() = sp.getString("skipped_update", "").orEmpty()
+        set(v) = sp.edit { putString("skipped_update", v) }
+
     // ----- Data -----
     var searchHistory: List<String>
         get() = sp.getString("history", "").orEmpty().split('\n').filter { it.isNotBlank() }

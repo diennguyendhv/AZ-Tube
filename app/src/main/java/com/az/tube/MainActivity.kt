@@ -51,6 +51,7 @@ class MainActivity : ComponentActivity() {
                 LaunchedEffect(AppLock.enabled) {
                     if (Build.VERSION.SDK_INT >= 33) setRecentsScreenshotEnabled(!AppLock.enabled)
                 }
+                LaunchedEffect(Unit) { Updater.autoCheck(this@MainActivity) }
                 LaunchedEffect(AppLock.notice) {
                     AppLock.notice?.let { vm.message = it; AppLock.notice = null }
                 }
@@ -59,7 +60,8 @@ class MainActivity : ComponentActivity() {
                     Box(if (AppLock.locked) Modifier.clearAndSetSemantics { } else Modifier) {
                         AzApp(vm, controller, inPip)
                     }
-                    if (AppLock.locked) LockScreen()
+                    // Dialogs are separate windows, so keep them away while the lock screen is up.
+                    if (AppLock.locked) LockScreen() else UpdateDialogs()
                 }
             }
         }

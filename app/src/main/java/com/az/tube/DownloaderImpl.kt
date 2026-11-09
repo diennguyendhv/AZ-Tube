@@ -22,7 +22,10 @@ object DownloaderImpl : Downloader() {
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:153.0) Gecko/20100101 Firefox/153.0"
 
     override fun execute(request: Request): Response {
-        val body = request.dataToSend()?.toRequestBody()
+        // Ask YouTube for Vietnamese so original Vietnamese titles aren't replaced by English ones.
+        val sent = request.dataToSend()
+        val vietnamese = sent?.let { VietnameseText.requestBody(String(it, Charsets.UTF_8)) }
+        val body = (vietnamese?.toByteArray(Charsets.UTF_8) ?: sent)?.toRequestBody()
         val builder = okhttp3.Request.Builder()
             .method(request.httpMethod(), body)
             .url(request.url())
@@ -31,6 +34,7 @@ object DownloaderImpl : Downloader() {
             builder.removeHeader(name)
             values.forEach { builder.addHeader(name, it) }
         }
+        if (vietnamese != null) builder.header("Accept-Language", VietnameseText.ACCEPT_LANGUAGE)
         Net.client.newCall(builder.build()).execute().use { res ->
             if (res.code == 429) {
                 throw ReCaptchaException("YouTube yêu cầu xác minh (quá nhiều yêu cầu)", request.url())
@@ -39,7 +43,7 @@ object DownloaderImpl : Downloader() {
                 res.code,
                 res.message,
                 res.headers.toMultimap(),
-                res.body.string(),
+                res.body.string().let { if (vietnamese != null) VietnameseText.response(it) else it },
                 res.request.url.toString(),
             )
         }
