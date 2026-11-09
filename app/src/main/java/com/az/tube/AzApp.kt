@@ -111,6 +111,7 @@ fun AzApp(vm: AppViewModel, player: Player?, inPip: Boolean) {
             openPlaylist = { url, name -> vm.watchExpanded = false; vm.open(Route.Playlist(url, name)) },
             share = { url ->
                 val send = Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, url)
+                AppLock.skipNextLock = true
                 context.startActivity(Intent.createChooser(send, "Chia sẻ"))
             },
             showMenu = { menuFor = it },

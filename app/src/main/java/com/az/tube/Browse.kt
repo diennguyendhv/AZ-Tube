@@ -139,6 +139,10 @@ private fun androidx.compose.foundation.layout.ColumnScope.SubscriptionFeed(vm: 
 @Composable
 fun LibraryScreen(vm: AppViewModel, onQuality: () -> Unit) {
     val actions = LocalActions.current
+    var lockDialog by remember { mutableStateOf<LockDialog?>(null) }
+    lockDialog?.let { mode ->
+        LockSettingsDialog(mode, onResult = { vm.message = it; lockDialog = null }, onDismiss = { lockDialog = null })
+    }
     Column(Modifier.fillMaxSize()) {
         TopBar(title = "Bạn", onSearch = { vm.openSearch() })
         LazyColumn(Modifier.weight(1f)) {
@@ -223,13 +227,12 @@ fun LibraryScreen(vm: AppViewModel, onQuality: () -> Unit) {
                 Text("Quyền riêng tư", Modifier.padding(16.dp), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                 SwitchLine("Lịch sử xem", "Lưu video đã xem. Tắt sẽ xoá lịch sử đã lưu", vm.watchHistoryOn) { vm.setWatchHistory(it) }
                 SwitchLine("Lịch sử tìm kiếm", "Lưu từ khoá đã tìm. Tắt sẽ xoá lịch sử đã lưu", vm.searchHistoryOn) { vm.setSearchHistory(it) }
-                SwitchLine("Đề xuất", "Trang chủ theo chủ đề, video liên quan, gợi ý khi tìm kiếm", vm.recommendationsOn) { vm.setRecommendations(it) }
-                if (vm.recommendationsOn) {
-                    SwitchLine("Tự động phát", "Hết hàng chờ thì phát tiếp video liên quan", vm.autoplay) {
-                        vm.autoplay = it
-                        Store.autoplay = it
-                    }
+                SwitchLine("Đề xuất", "Trang chủ theo chủ đề và gợi ý khi tìm kiếm. Tắt thì trang chủ chỉ có video từ kênh đã đăng ký", vm.recommendationsOn) { vm.setRecommendations(it) }
+                SwitchLine("Tự động phát", "Hết hàng chờ thì phát tiếp video cùng kênh", vm.autoplay) { vm.changeAutoplay(it) }
+                SwitchLine("Khóa ứng dụng bằng mật khẩu", "Hỏi mật khẩu mỗi khi mở hoặc quay lại AZ Tube", AppLock.enabled) {
+                    lockDialog = if (it) LockDialog.Enable else LockDialog.Disable
                 }
+                if (AppLock.enabled) SettingLine("Đổi mật khẩu", "") { lockDialog = LockDialog.Change }
                 Spacer(Modifier.height(8.dp))
                 HorizontalDivider()
                 Text("Cài đặt", Modifier.padding(16.dp), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)

@@ -9,6 +9,7 @@ class App : Application() {
     override fun onCreate() {
         super.onCreate()
         Store.init(this)
+        AppLock.init(this)
         NewPipe.init(DownloaderImpl, Localization("vi", "VN"), ContentCountry("VN"))
     }
 }

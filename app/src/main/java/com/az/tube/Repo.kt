@@ -239,7 +239,7 @@ object Repo {
                 info.uploaderSubscriberCount,
                 info.isUploaderVerified,
             ),
-            related = if (Store.recommendationsOn) sameChannelVideos(info) else emptyList(),
+            related = sameChannelVideos(info),
         )
     }
 }

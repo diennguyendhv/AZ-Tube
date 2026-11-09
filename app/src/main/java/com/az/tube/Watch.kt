@@ -381,7 +381,7 @@ fun WatchScreen(
     val item = state.current ?: return
     val d = vm.details?.takeIf { it.url == item.mediaId }
     var expanded by remember(item.mediaId) { mutableStateOf(false) }
-    var showQueue by remember { mutableStateOf(!vm.recommendationsOn) }
+    var showQueue by remember { mutableStateOf(false) }
     Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
         Column(Modifier.fillMaxSize()) {
             Box(Modifier.background(Color.Black).statusBarsPadding()) {
@@ -489,9 +489,35 @@ fun WatchScreen(
                 }
                 when {
                     d != null -> {
-                        if (vm.recommendationsOn) {
-                            itemsIndexed(d.related, key = { i, e -> "r$i${e.url}" }) { _, e -> EntryView(e) { actions.play(it) } }
+                        // Always shown, whatever "Đề xuất" is set to: more videos from this channel.
+                        item {
+                            Row(
+                                Modifier.fillMaxWidth().padding(start = 12.dp, end = 4.dp, top = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Text(
+                                    if (d.related.isEmpty()) "Tự động phát tiếp video cùng kênh" else "Video cùng kênh",
+                                    Modifier.weight(1f),
+                                    fontWeight = FontWeight.Bold,
+                                )
+                                Text("Tự động phát", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Spacer(Modifier.width(8.dp))
+                                androidx.compose.material3.Switch(
+                                    checked = vm.autoplay,
+                                    onCheckedChange = { on ->
+                                        vm.changeAutoplay(on)
+                                        // Off: take back the videos autoplay already queued after this one.
+                                        if (!on) {
+                                            val p = state.player
+                                            for (i in p.mediaItemCount - 1 downTo p.currentMediaItemIndex + 1) {
+                                                if (p.getMediaItemAt(i).mediaId in StreamResolver.autoAdded) p.removeMediaItem(i)
+                                            }
+                                        }
+                                    },
+                                )
+                            }
                         }
+                        itemsIndexed(d.related, key = { i, e -> "r$i${e.url}" }) { _, e -> EntryView(e) { actions.play(it) } }
                     }
                     vm.detailsError != null -> item {
                         CenterMessage("Không tải được thông tin video\n${vm.detailsError}", action = "Thử lại") { vm.retryDetails() }

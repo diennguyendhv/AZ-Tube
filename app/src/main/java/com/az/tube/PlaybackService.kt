@@ -117,15 +117,16 @@ class PlaybackService : MediaSessionService() {
         super.onDestroy()
     }
 
-    /** With recommendations and autoplay on: when the last video in the queue starts, add a related one. */
+    /** With autoplay on: when the last video in the queue plays, add a video from the same channel. */
     private fun maybeAppendRelated() {
         val p = session?.player ?: return
-        if (!Store.recommendationsOn || !Store.autoplay || p.mediaItemCount == 0) return
+        if (!Store.autoplay || p.mediaItemCount == 0) return
         if (p.currentMediaItemIndex != p.mediaItemCount - 1) return
         val current = p.currentMediaItem?.mediaId ?: return
         val related = StreamResolver.related[current] ?: return
         val inQueue = (0 until p.mediaItemCount).map { p.getMediaItemAt(it).mediaId }.toSet()
         val next = related.firstOrNull { it.url !in played && it.url !in inQueue && !Blocked.isBlocked(it.channelUrl) } ?: return
+        StreamResolver.autoAdded.add(next.url)
         p.addMediaItem(Media.playable(next.toMediaItem()))
     }
 

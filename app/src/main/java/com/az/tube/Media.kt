@@ -85,8 +85,11 @@ object InfoCache {
  * Nothing from YouTube's ad system is ever requested, so there are no ads.
  */
 object StreamResolver {
-    /** Same-channel videos for each resolved URL, used by autoplay when recommendations are on. */
+    /** Same-channel videos for each resolved URL, used by autoplay. */
     val related = ConcurrentHashMap<String, List<VideoItem>>()
+
+    /** Videos that autoplay added to the queue (so turning autoplay off can take them out again). */
+    val autoAdded: MutableSet<String> = ConcurrentHashMap.newKeySet()
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
@@ -98,8 +101,9 @@ object StreamResolver {
         if (info.streamType == StreamType.LIVE_STREAM || info.streamType == StreamType.AUDIO_LIVE_STREAM) {
             throw IOException("Chưa hỗ trợ phát trực tiếp (livestream)")
         }
-        if (Store.recommendationsOn && Store.autoplay && !related.containsKey(url)) {
-            // Same-channel list for autoplay. May need the channel page, so load it off this thread.
+        if (!related.containsKey(url)) {
+            // Same-channel list for autoplay (ready even if autoplay is switched on later).
+            // May need the channel page, so load it off this thread.
             scope.launch {
                 runCatching { Repo.sameChannelVideos(info) }.getOrNull()?.let {
                     related[url] = it

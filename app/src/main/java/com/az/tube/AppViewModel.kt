@@ -158,7 +158,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         searchOpen = true
     }
 
-    /** Typing in the search box. Suggestions are fetched only when recommendations are on. */
+    /** Typing in the search box. Suggestions are fetched only when "Đề xuất" is on. */
     fun updateSearchText(text: String) {
         searchText = text
         suggestJob?.cancel()
@@ -307,6 +307,14 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     var audioOnly by mutableStateOf(Store.audioOnly)
     var maxQuality by mutableStateOf(Store.maxQuality)
     var autoplay by mutableStateOf(Store.autoplay)
+        private set
+
+    /** Works on its own, whatever "Đề xuất" is set to. Turning it on queues the next video right away. */
+    fun changeAutoplay(on: Boolean) {
+        autoplay = on
+        Store.autoplay = on
+        if (on) StreamResolver.onResolved?.invoke("")
+    }
 
     var watchHistoryOn by mutableStateOf(Store.watchHistoryOn)
         private set

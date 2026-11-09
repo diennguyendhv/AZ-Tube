@@ -14,7 +14,11 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
+import androidx.compose.foundation.layout.Box
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.core.content.ContextCompat
@@ -42,7 +46,22 @@ class MainActivity : ComponentActivity() {
         }
         if (savedInstanceState == null) handleShare(intent)
         setContent {
-            AppTheme { AzApp(vm, controller, inPip) }
+            AppTheme {
+                // Android 13+: no preview of the app in Recents while the password lock is on.
+                LaunchedEffect(AppLock.enabled) {
+                    if (Build.VERSION.SDK_INT >= 33) setRecentsScreenshotEnabled(!AppLock.enabled)
+                }
+                LaunchedEffect(AppLock.notice) {
+                    AppLock.notice?.let { vm.message = it; AppLock.notice = null }
+                }
+                Box {
+                    // While locked the app stays underneath (keeps its place) but is hidden from screen readers.
+                    Box(if (AppLock.locked) Modifier.clearAndSetSemantics { } else Modifier) {
+                        AzApp(vm, controller, inPip)
+                    }
+                    if (AppLock.locked) LockScreen()
+                }
+            }
         }
     }
 
@@ -72,7 +91,13 @@ class MainActivity : ComponentActivity() {
         }, ContextCompat.getMainExecutor(this))
     }
 
+    override fun onResume() {
+        super.onResume()
+        AppLock.skipNextLock = false
+    }
+
     override fun onStop() {
+        AppLock.onLeave(isChangingConfigurations)
         // Screen off or app in the background: stop downloading video, keep the sound.
         controller?.let { setVideoEnabled(it, false) }
         controller = null
@@ -95,6 +120,8 @@ class MainActivity : ComponentActivity() {
 
     override fun onPictureInPictureModeChanged(isInPictureInPictureMode: Boolean, newConfig: Configuration) {
         super.onPictureInPictureModeChanged(isInPictureInPictureMode, newConfig)
+        // Back from the floating window to full screen: ask for the password again.
+        if (inPip && !isInPictureInPictureMode) AppLock.onPipClosed()
         inPip = isInPictureInPictureMode
     }
 }
