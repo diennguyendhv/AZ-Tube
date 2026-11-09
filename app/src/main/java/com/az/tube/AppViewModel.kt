@@ -158,11 +158,11 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         searchOpen = true
     }
 
-    /** Typing in the search box. Suggestions are fetched only when "Đề xuất" is on. */
+    /** Typing in the search box. Suggestions always show (whatever "Đề xuất" is set to) to save typing. */
     fun updateSearchText(text: String) {
         searchText = text
         suggestJob?.cancel()
-        if (text.isBlank() || !recommendationsOn) {
+        if (text.isBlank()) {
             suggestions = emptyList()
             return
         }
@@ -342,7 +342,6 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun setRecommendations(on: Boolean) {
         recommendationsOn = on
         Store.recommendationsOn = on
-        if (!on) suggestions = emptyList()
         // The "Kênh đăng ký" tab exists only with recommendations on; go home if we were there.
         if (!on && stack.firstOrNull() == Route.Subscriptions) selectTab(Route.Home)
     }

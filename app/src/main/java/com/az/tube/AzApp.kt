@@ -141,8 +141,12 @@ fun AzApp(vm: AppViewModel, player: Player?, inPip: Boolean) {
             vm.message = null
         }
     }
-    // "Audio only" stops the video download right away.
-    LaunchedEffect(player, vm.audioOnly) { player?.let { setVideoEnabled(it, !vm.audioOnly) } }
+    // "Audio only" stops the video download right away. While the lock screen covers the app there is
+    // nothing to show either, and starting the video decoder then can fail on some phones (Pixel):
+    // turn the picture back on only once the app is unlocked.
+    LaunchedEffect(player, vm.audioOnly, AppLock.locked) {
+        player?.let { setVideoEnabled(it, !vm.audioOnly && !AppLock.locked) }
+    }
     // Load the title, channel and description.
     LaunchedEffect(current?.mediaId) {
         current?.let {

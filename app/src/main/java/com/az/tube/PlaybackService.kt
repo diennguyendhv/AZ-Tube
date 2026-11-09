@@ -38,6 +38,9 @@ class PlaybackService : MediaSessionService() {
     private var session: MediaSession? = null
     private val played = HashSet<String>()
     private val retries = HashMap<String, Int>()
+
+    /** Video decoder failures per video: the stream is fine, so these never skip to the next song. */
+    private val decoderRetries = HashMap<String, Int>()
     private val main = Handler(Looper.getMainLooper())
     private val connectivity by lazy { getSystemService(ConnectivityManager::class.java) }
 
@@ -198,6 +201,21 @@ class PlaybackService : MediaSessionService() {
                     netRetries++
                     waitingForNetwork = true
                     main.postDelayed({ resumeAfterNetwork() }, 3_000L * netRetries)
+                    return
+                }
+            }
+            if (error.errorCode in PlaybackException.ERROR_CODE_DECODER_INIT_FAILED..PlaybackException.ERROR_CODE_DECODING_FORMAT_UNSUPPORTED) {
+                // The phone's video decoder couldn't start (e.g. busy right after the screen came back on).
+                // Try again where we are; if it fails again, keep playing the sound without the picture.
+                val n = decoderRetries[id] ?: 0
+                decoderRetries[id] = n + 1
+                if (n >= 1) {
+                    setVideoEnabled(player, false)
+                    if (n == 1) toast("Không mở được phần hình của video này, đang phát âm thanh")
+                }
+                if (n < 4) {
+                    player.prepare()
+                    player.play()
                     return
                 }
             }

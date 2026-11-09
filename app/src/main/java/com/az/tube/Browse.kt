@@ -227,7 +227,7 @@ fun LibraryScreen(vm: AppViewModel, onQuality: () -> Unit) {
                 Text("Quyền riêng tư", Modifier.padding(16.dp), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                 SwitchLine("Lịch sử xem", "Lưu video đã xem. Tắt sẽ xoá lịch sử đã lưu", vm.watchHistoryOn) { vm.setWatchHistory(it) }
                 SwitchLine("Lịch sử tìm kiếm", "Lưu từ khoá đã tìm. Tắt sẽ xoá lịch sử đã lưu", vm.searchHistoryOn) { vm.setSearchHistory(it) }
-                SwitchLine("Đề xuất", "Trang chủ theo chủ đề và gợi ý khi tìm kiếm. Tắt thì trang chủ chỉ có video từ kênh đã đăng ký", vm.recommendationsOn) { vm.setRecommendations(it) }
+                SwitchLine("Đề xuất", "Trang chủ theo chủ đề: kiến thức, bài học hay. Tắt thì trang chủ chỉ có video từ kênh đã đăng ký", vm.recommendationsOn) { vm.setRecommendations(it) }
                 SwitchLine("Tự động phát", "Hết hàng chờ thì phát tiếp video cùng kênh", vm.autoplay) { vm.changeAutoplay(it) }
                 SwitchLine("Khóa ứng dụng bằng mã PIN", "Hỏi mã PIN mỗi khi mở hoặc quay lại AZ Tube", AppLock.enabled) {
                     lockDialog = if (it) LockDialog.Enable else LockDialog.Disable
@@ -371,7 +371,7 @@ fun PlaylistScreen(vm: AppViewModel, route: Route.Playlist) {
     }
 }
 
-/** Full-screen search box. History and suggestions appear only when those switches are on. */
+/** Full-screen search box. Search history appears only when its switch is on; suggestions always do. */
 @Composable
 fun SearchOverlay(vm: AppViewModel) {
     val focus = remember { FocusRequester() }

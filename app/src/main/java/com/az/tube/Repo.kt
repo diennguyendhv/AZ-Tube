@@ -15,7 +15,6 @@ import org.schabi.newpipe.extractor.ServiceList
 import org.schabi.newpipe.extractor.channel.ChannelInfo
 import org.schabi.newpipe.extractor.channel.tabs.ChannelTabInfo
 import org.schabi.newpipe.extractor.channel.tabs.ChannelTabs
-import org.schabi.newpipe.extractor.kiosk.KioskInfo
 import org.schabi.newpipe.extractor.playlist.PlaylistInfo
 import org.schabi.newpipe.extractor.search.SearchInfo
 import org.schabi.newpipe.extractor.services.youtube.linkHandler.YoutubeSearchQueryHandlerFactory
@@ -45,8 +44,26 @@ data class Details(
     val related: List<Entry>,
 )
 
+/** Home topics: learning and good life lessons first (in the style of Web5Ngày), then music for listening. */
 val HomeCategories = listOf(
-    "Tất cả", "Âm nhạc", "Chạy bộ", "Trò chơi", "Tin tức", "Phim", "Podcast", "Hài", "Nấu ăn", "Thể thao",
+    "Tất cả", "Bài học cuộc sống", "Phát triển bản thân", "Kiến thức", "Sách hay", "Kỹ năng",
+    "Tài chính", "Tiếng Anh", "Lịch sử", "Nuôi dạy con", "Sức khỏe", "Âm nhạc", "Chạy bộ",
+)
+
+/** Searches behind each topic. "Tất cả" picks a few from all of them, so the home page changes each time. */
+private val TopicQueries = mapOf(
+    "Bài học cuộc sống" to listOf("web5ngay", "bài học cuộc sống", "câu chuyện ý nghĩa cuộc sống", "triết lý sống"),
+    "Phát triển bản thân" to listOf("phát triển bản thân", "thói quen thành công", "tư duy tích cực", "quản lý thời gian"),
+    "Kiến thức" to listOf("kiến thức thú vị", "khám phá khoa học", "tại sao", "giải thích dễ hiểu"),
+    "Sách hay" to listOf("tóm tắt sách hay", "sách nói hay", "review sách"),
+    "Kỹ năng" to listOf("kỹ năng giao tiếp", "kỹ năng mềm", "học excel cơ bản", "tin học văn phòng"),
+    "Tài chính" to listOf("tài chính cá nhân", "quản lý tiền bạc", "kiến thức kinh doanh"),
+    "Tiếng Anh" to listOf("học tiếng anh giao tiếp", "tiếng anh cho người mới bắt đầu"),
+    "Lịch sử" to listOf("lịch sử việt nam", "lịch sử thế giới", "nhân vật lịch sử"),
+    "Nuôi dạy con" to listOf("nuôi dạy con", "dạy con thông minh", "giáo dục gia đình"),
+    "Sức khỏe" to listOf("kiến thức sức khỏe", "sống khỏe mỗi ngày"),
+    "Âm nhạc" to listOf("nhạc việt mới nhất", "vpop hot nhất", "nhạc không lời thư giãn"),
+    "Chạy bộ" to listOf("nhạc chạy bộ", "running music 160 bpm", "nhạc tập gym"),
 )
 
 object Repo {
@@ -84,38 +101,16 @@ object Repo {
         }
     }
 
-    private suspend fun kiosk(id: String): PageResult = withContext(Dispatchers.IO) {
-        val url = yt.kioskList.getListLinkHandlerFactoryByType(id).fromId(id).url
-        val info = KioskInfo.getInfo(yt, url)
-        pageOf(info.relatedItems, info.nextPage) { KioskInfo.getMoreItems(yt, url, it) }
-    }
-
     /** Recommended home feed (only used when recommendations are on): mixes searches by topic and your history. */
     suspend fun home(category: String): PageResult = coroutineScope {
-        val queries = when (category) {
-            "Âm nhạc" -> listOf("nhạc việt mới nhất", "vpop hot nhất", "nhạc trẻ remix")
-            "Chạy bộ" -> listOf("nhạc chạy bộ", "running music 160 bpm", "nhạc tập gym")
-            "Trò chơi" -> listOf("game hay nhất", "liên quân mobile")
-            "Tin tức" -> listOf("tin tức mới nhất hôm nay", "thời sự")
-            "Phim" -> listOf("phim hay", "trailer phim mới")
-            "Podcast" -> listOf("podcast tiếng việt")
-            "Hài" -> listOf("hài hước mới nhất", "hài việt")
-            "Nấu ăn" -> listOf("nấu ăn ngon mỗi ngày")
-            "Thể thao" -> listOf("bóng đá highlights", "thể thao 24h")
-            else -> {
-                val fromSearches = Store.searchHistory.take(3)
-                val fromChannels = Store.watchHistory.map { it.channel }.filter { it.isNotBlank() }.distinct().take(2)
-                (fromSearches + fromChannels + listOf("thịnh hành việt nam", "nhạc mới nhất", "tin tức hôm nay"))
-                    .distinct().take(6)
-            }
+        val queries = TopicQueries[category] ?: run {
+            // "Tất cả": learning topics only (no music), one search from each of several topics, plus channels you watch.
+            val learning = TopicQueries.filterKeys { it != "Âm nhạc" && it != "Chạy bộ" }.values
+            val picked = learning.shuffled().take(5).map { it.random() }
+            val fromChannels = Store.watchHistory.map { it.channel }.filter { it.isNotBlank() }.distinct().take(2)
+            (picked + fromChannels).distinct()
         }
-        val kioskId = when (category) {
-            "Trò chơi" -> "trending_gaming"
-            "Phim" -> "trending_movies_and_shows"
-            else -> null
-        }
-        val jobs = queries.map { q -> async { runCatching { search(q, videosOnly = true) }.getOrNull() } } +
-            listOfNotNull(kioskId?.let { id -> async { runCatching { kiosk(id) }.getOrNull() } })
+        val jobs = queries.map { q -> async { runCatching { search(q, videosOnly = true) }.getOrNull() } }
         val pages = jobs.awaitAll().filterNotNull()
         if (pages.isEmpty()) throw java.io.IOException("Không tải được trang chủ. Kiểm tra kết nối mạng.")
         mix(pages, HashSet())
