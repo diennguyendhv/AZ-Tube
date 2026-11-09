@@ -3,7 +3,7 @@
 Ứng dụng Android xem video YouTube không quảng cáo, phát nền khi tắt màn hình. Viết cho mục đích cá nhân: nghe nhạc khi chạy bộ.
 
 - **Tải file cài:** [aztube-releases](https://github.com/diennguyendhv/aztube-releases/releases)
-- **Trang chủ:** https://aztube.diennguyenaz.com
+- **Trang chủ:** https://diennguyendhv.github.io/aztube-releases/
 
 > AZ Tube là dự án cá nhân, độc lập, **không liên kết với YouTube hay Google**. App lấy dữ liệu qua thư viện mã nguồn mở NewPipeExtractor, không dùng API chính thức của YouTube. Việc sử dụng có thể không phù hợp với Điều khoản dịch vụ của YouTube. Bạn tự cân nhắc khi dùng. Xem [`audit/`](audit/AUDIT_REPORT.md).
 

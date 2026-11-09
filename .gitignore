@@ -13,3 +13,6 @@ local.properties
 keystore.properties
 *.keystore
 *.jks
+
+# Website source (published from the aztube-releases repo)
+web/
