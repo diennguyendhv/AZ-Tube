@@ -103,6 +103,8 @@ Có một số **bộ nhớ tăng dần không giới hạn** (không phải lea
 > Các vấn đề bảo mật nằm trong `SECURITY_REPORT.md` (SEC-x), giấy phép trong `LICENSE_REPORT.md` (L-x), hiệu năng trong `PERFORMANCE_REPORT.md` (PERF-x).
 
 ### ARCH-1 · HIGH — Mất mạng: lỗi được xử lý bằng cách bỏ qua bài, thay vì chờ có mạng lại
+> **✅ Đã sửa sau audit** (theo yêu cầu "Sửa luôn" của người dùng): xem mục 8.
+
 - **Vị trí:** `PlaybackService.kt`, dòng 107–126 (`onPlayerError`)
 - **Mô tả:** khi ExoPlayer báo lỗi (đã hết số lần thử lại của chính nó), app gọi `prepare()` lại ngay một lần. Nếu vẫn lỗi thì `seekToNextMediaItem()`. Logic không phân biệt lỗi mạng (`ERROR_CODE_IO_NETWORK_CONNECTION_FAILED`, `…TIMEOUT`) với lỗi nội dung (video bị chặn, không có luồng).
 - **Ảnh hưởng:**
@@ -116,6 +118,8 @@ Có một số **bộ nhớ tăng dần không giới hạn** (không phải lea
   - Có thể tăng `LoadErrorHandlingPolicy` (số lần thử và thời gian giữa các lần).
 
 ### ARCH-2 · MEDIUM — Bộ đếm thử lại (`retries`) không bao giờ được xoá
+> **✅ Đã sửa sau audit** (theo yêu cầu "Sửa luôn" của người dùng): xem mục 8.
+
 - **Vị trí:** `PlaybackService.kt`, dòng 28, 109–117
 - **Mô tả:** `retries[id]` chỉ tăng, không reset khi phát thành công hay khi chuyển bài.
 - **Ảnh hưởng:** link luồng YouTube hết hạn sau vài giờ. Nếu một video đã dùng hết lượt thử lại (ví dụ lúc mất mạng ở ARCH-1), thì lần sau link hết hạn (tạm dừng lâu rồi phát tiếp) app sẽ không lấy link mới nữa mà bỏ qua hoặc báo lỗi ngay.
@@ -255,8 +259,8 @@ Chi tiết số đo trong [`PERFORMANCE_REPORT.md`](PERFORMANCE_REPORT.md).
 | Bài kiểm tra | Kết quả |
 |---|---|
 | Phát nền 30 phút, tắt màn hình | **Đạt.** Phát liên tục, RAM ổn định 115–131 MB, không thấy rò rỉ. |
-| CPU khi phát nền | **Có vấn đề** (PERF-1, MEDIUM). Từ phút 9, video được giải mã lại dù màn hình tắt. CPU tăng từ ~2% lên ~12% một nhân. |
-| Mất mạng 2 phút, có mạng lại | **Không đạt** (ARCH-1, HIGH, đã xác nhận). Hết bộ đệm thì bỏ qua bài, rồi dừng ở trạng thái lỗi. Không tự phục hồi khi có mạng. |
+| CPU khi phát nền | ~2% một nhân khi chỉ phát âm thanh. Đoạn tăng lên ~12% từ phút 9 **nhiều khả năng do màn hình giả lập bị bật lại** (PERF-1, đã đánh giá lại). Đo lại sau khi thêm lớp bảo vệ: 133 ticks/phút (~2%). |
+| Mất mạng 2 phút, có mạng lại | Bản `d344b73`: **không đạt** (ARCH-1). Hết bộ đệm thì bỏ qua bài, dừng ở lỗi. **Sau khi sửa: đạt.** Giữ đúng bài ở vị trí 1:09, phát tiếp đúng chỗ khoảng 10 giây sau khi có mạng lại. |
 | Cuộc gọi đến | Chưa đo. Mã có xử lý audio focus (`PlaybackService.kt:34-40`). |
 | Hệ điều hành thu hồi app | Chưa đo. Phân tích mã: hàng chờ bị mất, nút phát trên tai nghe không phát tiếp (ARCH-3). |
 | Đóng đột ngột, dữ liệu | Chưa đo. Phân tích mã: rủi ro mất thay đổi cuối thấp; JSON hỏng xoá danh sách (DATA-2). |
@@ -270,9 +274,9 @@ Chi tiết số đo trong [`PERFORMANCE_REPORT.md`](PERFORMANCE_REPORT.md).
 - App không xin quyền nhạy cảm, không gửi dữ liệu người dùng ra ngoài ngoài các request tới YouTube.
 - Phát nền ổn định trong 30 phút, không rò rỉ RAM.
 - Điều kiện:
-  - Chấp nhận rằng khi mất mạng lúc chạy bộ, app sẽ dừng và phải mở lên bấm phát lại (ARCH-1).
-  - Chấp nhận tốn pin hơn cần thiết khi phát nền (PERF-1).
-  - Nên sửa ARCH-1 và PERF-1 trước khi dùng thường xuyên.
+  - ARCH-1 (mất mạng) và ARCH-2 đã được sửa và kiểm chứng trên MuMu (mục 8).
+  - Vẫn còn ARCH-3: sau khi hệ điều hành thu hồi app, nút phát trên tai nghe không phát tiếp bài cũ.
+  - Nên đo thêm trên điện thoại thật (cuộc gọi, thu hồi app, pin).
 
 ### 7.2. Phân phối cho người khác (kể cả người quen qua diennguyenaz.com): **chưa sẵn sàng**
 - Có 2 vấn đề CRITICAL về điều khoản dịch vụ YouTube (TOS-1, TOS-2). Đây là rủi ro do **cách lấy và phát video**, không sửa được bằng một thay đổi nhỏ.
@@ -281,6 +285,19 @@ Chi tiết số đo trong [`PERFORMANCE_REPORT.md`](PERFORMANCE_REPORT.md).
 - Báo cáo này **không phải ý kiến pháp lý**. Nếu muốn phân phối, nên chọn một phương án hợp lệ ở `RECOMMENDATIONS.md` mục 2 và hỏi ý kiến người có chuyên môn pháp lý.
 
 ### 7.3. Việc nên làm tiếp theo
-1. Sửa ARCH-1 (mất mạng) và PERF-1 (video giải mã khi tắt màn hình).
+1. ~~Sửa ARCH-1 và PERF-1~~ (đã làm, mục 8). Tiếp theo: ARCH-3 (khôi phục hàng chờ) và DATA-2.
 2. Đo bổ sung trên Pixel: cuộc gọi, thu hồi app, đóng đột ngột.
 3. Quyết định hướng đi về điều khoản dịch vụ trước khi đưa APK cho bất kỳ ai.
+
+---
+
+## 8. Các sửa lỗi sau audit
+
+Người dùng yêu cầu "Sửa luôn" sau khi đọc kết luận. Các thay đổi sau được làm sau commit audit:
+
+| Vấn đề | Đã sửa | Kiểm chứng |
+|---|---|---|
+| **ARCH-1** mất mạng | `PlaybackService.kt`: lỗi mạng (theo `errorCode`, chuỗi nguyên nhân `UnknownHostException`/`SocketTimeoutException`/`ConnectException`/`SocketException`, hoặc không có mạng) **không bỏ qua bài nữa**. Giữ bài và vị trí, chờ `ConnectivityManager.NetworkCallback` báo có mạng rồi `prepare()` + `play()`. Nếu vừa có mạng mà vẫn lỗi, thử lại tối đa 5 lần với độ trễ tăng dần 3, 6, 9… giây. Thêm quyền `ACCESS_NETWORK_STATE` (quyền thường, không hỏi người dùng). | MuMu, tắt mạng 120 giây khi phát nền: giữ đúng bài ở vị trí 69,8 giây. Có mạng lại thì phát tiếp đúng chỗ trong khoảng 10 giây. |
+| **ARCH-2** bộ đếm thử lại | Xoá `retries` của video và bộ đếm thử lại mạng khi `STATE_READY`. | Theo mã |
+| **PERF-1** video khi tắt màn hình | Đánh giá lại: batterystats ghi wakelock `*launch*` và `WindowManager/displayId:0` của app, tức là cửa sổ app **đã được mở và hiển thị** trong lúc đo. Trong mã, video chỉ được bật lại khi Activity `onStart` (màn hình đang hiện). Kết luận: nhiều khả năng do màn hình giả lập bị bật lại, không phải lỗi. Vẫn thêm lớp bảo vệ: dịch vụ phát nhận `ACTION_SCREEN_OFF` và luôn tắt track video. | Đo lại 1 phút, màn hình tắt, đang phát: 133 ticks/phút (~2%), bằng mức chỉ âm thanh. |
+

@@ -139,7 +139,7 @@ Với mục đích **thử nghiệm cá nhân**, không thấy lỗ hổng nào 
 |---|---|---|
 | OK-1 | **HTTP/HTTPS** | `targetSdk 36` nên cleartext bị chặn mặc định. Mã nguồn không có `http://`, không có `usesCleartextTraffic` hay `networkSecurityConfig` cho phép HTTP. URL ảnh dạng `//…` được chuẩn hóa thành `https:` (`Models.kt`, `pickImage`). Các host gồm youtube.com, googlevideo.com, ytimg.com, đều HTTPS. |
 | OK-2 | **Log** | Không có `Log.*`, `println` hay `printStackTrace`. Không có SDK analytics hoặc crash reporting. Không gửi dữ liệu cho bên thứ ba ngoài các máy chủ YouTube và Google cần để lấy nội dung. |
-| OK-3 | **Quyền** | Chỉ xin `INTERNET`, `WAKE_LOCK`, `FOREGROUND_SERVICE`, `FOREGROUND_SERVICE_MEDIA_PLAYBACK`, `POST_NOTIFICATIONS`. Không có quyền vị trí, danh bạ, micro, camera hay bộ nhớ. Quyền thêm vào khi merge là `DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION` (mức signature). |
+| OK-3 | **Quyền** | Chỉ xin `INTERNET`, `ACCESS_NETWORK_STATE` (thêm sau audit, để biết khi nào có mạng lại), `WAKE_LOCK`, `FOREGROUND_SERVICE`, `FOREGROUND_SERVICE_MEDIA_PLAYBACK`, `POST_NOTIFICATIONS`. Không có quyền vị trí, danh bạ, micro, camera hay bộ nhớ. Quyền thêm vào khi merge là `DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION` (mức signature). |
 | OK-4 | **Component exported** | 5 component exported: `MainActivity` (cần cho launcher và link), `PlaybackService` (xem SEC-2), `BluetoothValidationActivity` (yêu cầu `BLUETOOTH_PRIVILEGED`), `ProfileInstallReceiver` (yêu cầu `DUMP`). `InitializationProvider` không exported. |
 | OK-5 | **Debuggable** | APK release không `debuggable`. `run-as com.az.tube` bị từ chối: "package not debuggable". |
 | OK-6 | **Tài khoản** | App không đăng nhập, không lưu cookie, token hay mật khẩu. Không có thông tin xác thực nào để lộ. |

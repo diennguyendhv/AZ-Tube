@@ -1,7 +1,15 @@
 package com.az.tube
 
 import android.app.PendingIntent
+import android.content.BroadcastReceiver
+import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
+import android.net.ConnectivityManager
+import android.net.Network
+import android.net.NetworkCapabilities
+import android.os.Handler
+import android.os.Looper
 import android.widget.Toast
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
@@ -15,6 +23,10 @@ import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
 import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.ListenableFuture
+import java.net.ConnectException
+import java.net.SocketException
+import java.net.SocketTimeoutException
+import java.net.UnknownHostException
 
 /**
  * Plays audio/video in the background, keeps going with the screen off, and shows
@@ -26,6 +38,29 @@ class PlaybackService : MediaSessionService() {
     private var session: MediaSession? = null
     private val played = HashSet<String>()
     private val retries = HashMap<String, Int>()
+    private val main = Handler(Looper.getMainLooper())
+    private val connectivity by lazy { getSystemService(ConnectivityManager::class.java) }
+
+    /** Playback stopped because the network dropped; resume when it's back. */
+    private var waitingForNetwork = false
+    private var netRetries = 0
+
+    private val networkCallback = object : ConnectivityManager.NetworkCallback() {
+        override fun onAvailable(network: Network) {
+            main.postDelayed({ resumeAfterNetwork() }, 2_000)
+        }
+
+        override fun onCapabilitiesChanged(network: Network, caps: NetworkCapabilities) {
+            if (caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)) main.post { resumeAfterNetwork() }
+        }
+    }
+
+    /** Screen off: never decode video, whatever state the app's screen was left in. */
+    private val screenOff = object : BroadcastReceiver() {
+        override fun onReceive(context: Context, intent: Intent) {
+            session?.player?.let { setVideoEnabled(it, false) }
+        }
+    }
 
     override fun onCreate() {
         super.onCreate()
@@ -46,6 +81,8 @@ class PlaybackService : MediaSessionService() {
         player.addListener(PlayerListener(player))
 
         StreamResolver.onResolved = { mainExecutor.execute { maybeAppendRelated() } }
+        connectivity.registerDefaultNetworkCallback(networkCallback)
+        registerReceiver(screenOff, IntentFilter(Intent.ACTION_SCREEN_OFF))
 
         val openApp = PendingIntent.getActivity(
             this, 0, Intent(this, MainActivity::class.java),
@@ -69,6 +106,9 @@ class PlaybackService : MediaSessionService() {
 
     override fun onDestroy() {
         StreamResolver.onResolved = null
+        runCatching { connectivity.unregisterNetworkCallback(networkCallback) }
+        runCatching { unregisterReceiver(screenOff) }
+        main.removeCallbacksAndMessages(null)
         session?.run {
             player.release()
             release()
@@ -89,6 +129,36 @@ class PlaybackService : MediaSessionService() {
         p.addMediaItem(Media.playable(next.toMediaItem()))
     }
 
+    private fun hasNetwork(): Boolean {
+        val caps = connectivity.getNetworkCapabilities(connectivity.activeNetwork) ?: return false
+        return caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+    }
+
+    private fun isNetworkError(error: PlaybackException): Boolean {
+        if (error.errorCode == PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED ||
+            error.errorCode == PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_TIMEOUT
+        ) {
+            return true
+        }
+        var e: Throwable? = error.cause
+        while (e != null) {
+            if (e is UnknownHostException || e is SocketTimeoutException || e is ConnectException || e is SocketException) return true
+            e = e.cause
+        }
+        return !hasNetwork()
+    }
+
+    /** Network is back: try the same video again from where it stopped. */
+    private fun resumeAfterNetwork() {
+        if (!waitingForNetwork) return
+        val p = session?.player ?: return
+        waitingForNetwork = false
+        if (p.playerError != null) {
+            p.prepare()
+            p.play()
+        }
+    }
+
     private inner class SessionCallback : MediaSession.Callback {
         override fun onAddMediaItems(
             mediaSession: MediaSession,
@@ -104,8 +174,32 @@ class PlaybackService : MediaSessionService() {
             maybeAppendRelated()
         }
 
+        override fun onPlaybackStateChanged(state: Int) {
+            if (state == Player.STATE_READY) {
+                // Playing fine again: give this video its retries back.
+                player.currentMediaItem?.mediaId?.let { retries.remove(it) }
+                netRetries = 0
+                waitingForNetwork = false
+            }
+        }
+
         override fun onPlayerError(error: PlaybackException) {
             val id = player.currentMediaItem?.mediaId ?: return
+            if (isNetworkError(error)) {
+                // Never skip a song because of the network. Keep the position and wait.
+                if (!hasNetwork()) {
+                    if (!waitingForNetwork) toast("Mất kết nối mạng. Sẽ phát tiếp khi có mạng lại")
+                    waitingForNetwork = true
+                    return
+                }
+                // Network is up but not working yet (just reconnected): try again a few times.
+                if (netRetries < 5) {
+                    netRetries++
+                    waitingForNetwork = true
+                    main.postDelayed({ resumeAfterNetwork() }, 3_000L * netRetries)
+                    return
+                }
+            }
             val tries = retries[id] ?: 0
             when {
                 // Stream links expire after a few hours: look them up again once.

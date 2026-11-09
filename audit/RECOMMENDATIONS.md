@@ -54,8 +54,8 @@ Các vấn đề TOS-1 và TOS-2 nằm ở **cách app lấy và phát video**. 
 ### Giai đoạn 1: Ổn định cho thử nghiệm cá nhân (ước tính 1–2 ngày)
 | # | Việc | Liên quan | Cách làm |
 |---|---|---|---|
-| 1.1 | Xử lý mất mạng đúng cách | ARCH-1, ARCH-2 | Phân loại lỗi theo `PlaybackException.errorCode`. Lỗi mạng thì giữ bài và vị trí, chờ `NetworkCallback.onAvailable` rồi `prepare()`. Reset `retries` khi `STATE_READY`. |
-| 1.1b | Không giải mã video khi màn hình tắt | PERF-1 | Bật/tắt track video theo vòng đời Activity (`repeatOnLifecycle(STARTED)`), một nguồn duy nhất. Đo lại 30 phút. |
+| 1.1 | ✅ Đã làm. Xử lý mất mạng đúng cách | ARCH-1, ARCH-2 | Phân loại lỗi theo `PlaybackException.errorCode`. Lỗi mạng thì giữ bài và vị trí, chờ `NetworkCallback.onAvailable` rồi `prepare()`. Reset `retries` khi `STATE_READY`. |
+| 1.1b | ✅ Đã thêm lớp bảo vệ. Không giải mã video khi màn hình tắt | PERF-1 | Bật/tắt track video theo vòng đời Activity (`repeatOnLifecycle(STARTED)`), một nguồn duy nhất. Đo lại 30 phút. |
 | 1.2 | Lưu và khôi phục hàng chờ | ARCH-3 | Lưu hàng chờ, chỉ số bài, vị trí khi chuyển bài hoặc tạm dừng. Hiện thực `MediaSession.Callback.onPlaybackResumption`. |
 | 1.3 | Không mất kênh đăng ký khi JSON hỏng | DATA-2 | Sao lưu chuỗi gốc trước khi ghi đè. Parse từng phần tử. |
 | 1.4 | Giới hạn app khác kết nối vào dịch vụ phát | SEC-2 | Override `onConnect`: chỉ chấp nhận chính app, controller của System UI và thông báo, và các controller tin cậy. |

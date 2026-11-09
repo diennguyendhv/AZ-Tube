@@ -28,7 +28,7 @@
 | RAM chạy nền 30 phút (MuMu) | PSS 115–131 MB, đầu 119,8 MB, cuối 119,6 MB | **Không thấy rò rỉ** |
 | Phát nền 30 phút, tắt màn hình | Phát liên tục, không dừng, không lỗi | **Đạt** |
 | CPU chạy nền | ~2% một nhân trong 8 phút đầu, rồi **~12%** từ phút thứ 9 | **Có vấn đề**, xem PERF-1 |
-| Mất mạng, có mạng lại | Phát hết bộ đệm (~55 giây), rồi bỏ qua bài và **dừng ở trạng thái lỗi**. Không tự phục hồi khi có mạng lại. | **Không đạt**, xác nhận ARCH-1 |
+| Mất mạng, có mạng lại | Bản `d344b73`: bỏ qua bài và **dừng ở trạng thái lỗi**. Sau khi sửa: giữ bài, phát tiếp đúng chỗ khi có mạng. | Trước: **không đạt**. Sau sửa: **đạt** |
 | Cuộc gọi đến | Chưa đo | Xem mục 5 |
 | Hệ điều hành thu hồi app chạy nền | Chưa đo | Xem mục 5 |
 | Khôi phục dữ liệu sau khi đóng đột ngột | Chưa đo trên máy. Có phân tích mã | Xem mục 5 |
@@ -94,7 +94,9 @@ Một lần mất mạng ngoài ý muốn trước đó, kéo dài ~6 phút, cho
 
 ## 4. Danh sách vấn đề
 
-### PERF-1 · MEDIUM — Video được giải mã lại khi màn hình tắt
+### PERF-1 · MEDIUM → đánh giá lại: nhiều khả năng không phải lỗi — Video được giải mã lại khi màn hình tắt
+> **Cập nhật sau audit:** batterystats có wakelock `*launch*` và `WindowManager/displayId:0` của app, tức là cửa sổ app đã được mở và hiển thị trong lúc đo (giả lập dùng chung). Trong mã không có đường nào bật lại video khi Activity đã `onStop`. Đã thêm lớp bảo vệ `ACTION_SCREEN_OFF` trong `PlaybackService`. Đo lại: ~2% CPU khi tắt màn hình. Xem AUDIT_REPORT mục 8.
+
 - **Vị trí:**
   - `MainActivity.kt:75-77`: `onStop()` tắt track video.
   - `AzApp.kt:144`: `LaunchedEffect(player, vm.audioOnly) { setVideoEnabled(it, !vm.audioOnly) }` bật lại video mỗi khi `player` hoặc `audioOnly` thay đổi.
@@ -108,6 +110,8 @@ Một lần mất mạng ngoài ý muốn trước đó, kéo dài ~6 phút, cho
   - Kiểm chứng lại bằng bài đo 30 phút: CPU phải giữ ~2% suốt bài, batterystats không có thời lượng video.
 
 ### PERF-2 · HIGH — Mất mạng làm mất bài và dừng hẳn
+> **✅ Đã sửa và kiểm chứng sau audit:** giữ đúng bài và vị trí, phát tiếp khi có mạng lại. Xem AUDIT_REPORT mục 8.
+
 Là ARCH-1, đã xác nhận bằng đo thực tế ở mục 3. Cách sửa: xem ARCH-1 và RECOMMENDATIONS 1.1.
 
 ### PERF-3 · LOW — Native heap tăng chậm
