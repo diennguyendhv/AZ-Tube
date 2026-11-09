@@ -432,7 +432,7 @@ fun WatchScreen(
                         Spacer(Modifier.width(12.dp))
                         Column(Modifier.weight(1f)) {
                             NameWithBadge(channel.name, channel.verified, 15.sp)
-                            Text(compactNumber(channel.subscribers), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(subsText(channel.subscribers), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                         if (channel.url.isNotEmpty()) SubscribeButton(channel)
                     }
@@ -596,6 +596,10 @@ fun MiniPlayer(state: PlayerState, onExpand: () -> Unit, onClose: () -> Unit) {
 }
 
 private val Speeds = listOf(0.5f, 0.75f, 1f, 1.25f, 1.5f, 1.75f, 2f)
+
+/** 1 -> "Chuẩn", 2 -> "2x", 1.25 -> "1,25x". */
+private fun speedLabel(s: Float): String =
+    if (s == 1f) "Chuẩn" else "${s}x".replace(".0x", "x").replace('.', ',')
 val Qualities = listOf(1080, 720, 480, 360, 240, 144)
 
 /** Gear menu: quality, speed, audio only. */
@@ -607,15 +611,14 @@ fun PlayerSettingsSheet(vm: AppViewModel, state: PlayerState, onQuality: () -> U
         Column(Modifier.navigationBarsPadding().padding(bottom = 8.dp)) {
             when (page) {
                 "speed" -> Speeds.forEach { s ->
-                    val label = if (s == 1f) "Chuẩn" else "${s}x".replace(".0x", "x")
-                    CheckRow(label, state.speed == s) {
+                    CheckRow(speedLabel(s), state.speed == s) {
                         state.player.playbackParameters = PlaybackParameters(s)
                         onDismiss()
                     }
                 }
                 else -> {
                     SettingLine("Chất lượng", "${vm.maxQuality}p") { onDismiss(); onQuality() }
-                    SettingLine("Tốc độ phát", if (state.speed == 1f) "Chuẩn" else "${state.speed}x") { page = "speed" }
+                    SettingLine("Tốc độ phát", speedLabel(state.speed)) { page = "speed" }
                     SwitchLine("Chỉ nghe âm thanh", "Không tải hình, tiết kiệm pin và dữ liệu", vm.audioOnly) {
                         vm.audioOnly = it
                         Store.audioOnly = it

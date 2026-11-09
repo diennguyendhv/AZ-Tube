@@ -49,6 +49,28 @@ object Updater {
     var installing by mutableStateOf(false)
         private set
 
+    /** The app's screen is showing. Android won't open the installer's screen from the background. */
+    @Volatile
+    var inForeground = false
+
+    /** The installer's confirmation, kept until the app is opened again when it arrived in the background. */
+    @Volatile
+    var pendingConfirm: Intent? = null
+
+    /** Opens Android's "update this app?" screen. Returns false when it couldn't. */
+    fun openConfirm(context: Context, confirm: Intent): Boolean {
+        // Android's confirmation screen is part of updating, not leaving the app.
+        AppLock.skipNextLock = true
+        return runCatching { context.startActivity(confirm) }.isSuccess.also { if (!it) AppLock.skipNextLock = false }
+    }
+
+    /** Called when the app comes back to the screen: show a confirmation that arrived meanwhile. */
+    fun showPendingConfirm(context: Context) {
+        val confirm = pendingConfirm ?: return
+        pendingConfirm = null
+        if (!openConfirm(context, confirm)) onInstallEnded("Không mở được trình cài đặt. Tải bản mới trên trang web")
+    }
+
     fun currentVersion(context: Context): String = try {
         context.packageManager.getPackageInfo(context.packageName, 0).versionName.orEmpty()
     } catch (_: Exception) {
@@ -223,6 +245,7 @@ object Updater {
     /** Called by [UpdateReceiver] when the installer finished without installing. */
     fun onInstallEnded(message: String?) {
         installing = false
+        pendingConfirm = null
         if (message != null) AppLock.notice = message
     }
 }
@@ -235,10 +258,13 @@ class UpdateReceiver : BroadcastReceiver() {
                 @Suppress("DEPRECATION")
                 val confirm = intent.getParcelableExtra<Intent>(Intent.EXTRA_INTENT) ?: return
                 confirm.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                // Android's confirmation screen is part of updating, not leaving the app.
-                AppLock.skipNextLock = true
-                runCatching { context.startActivity(confirm) }
-                    .onFailure { Updater.onInstallEnded("Không mở được trình cài đặt. Tải bản mới trên trang web") }
+                if (!Updater.inForeground) {
+                    // The user left the app while it was downloading: Android blocks opening screens
+                    // from the background, so ask when they come back.
+                    Updater.pendingConfirm = confirm
+                } else if (!Updater.openConfirm(context, confirm)) {
+                    Updater.onInstallEnded("Không mở được trình cài đặt. Tải bản mới trên trang web")
+                }
             }
             PackageInstaller.STATUS_SUCCESS -> Updater.onInstallEnded(null)
             PackageInstaller.STATUS_FAILURE_ABORTED -> Updater.onInstallEnded(null)

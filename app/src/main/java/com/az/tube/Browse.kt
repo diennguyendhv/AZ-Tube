@@ -335,10 +335,19 @@ fun PlaylistScreen(vm: AppViewModel, route: Route.Playlist) {
     val actions = LocalActions.current
     val paged = vm.pagedFor(route)
     val header = paged.header as? PlaylistHeader
+    // Plays the list from [index] on right away, then adds the pages not loaded yet to the queue.
+    fun playFrom(list: List<VideoItem>, index: Int) {
+        if (list.isEmpty()) return
+        actions.playList(list, index)
+        paged.fetchRest(max = 1000, known = list.map { it.url }.toSet()) { rest ->
+            val videos = rest.filterIsInstance<VideoItem>()
+            if (videos.isNotEmpty()) actions.appendToQueue(list.first().url, videos)
+        }
+    }
     Column(Modifier.fillMaxSize()) {
         TopBar(title = header?.name ?: route.name, onBack = { vm.back() }, onSearch = { vm.openSearch() })
         // In a playlist, tapping a video plays the list from that video on.
-        EntryList(paged, Modifier.weight(1f), onVideo = { list, v -> actions.playList(list, list.indexOf(v)) }) {
+        EntryList(paged, Modifier.weight(1f), onVideo = { list, v -> playFrom(list, list.indexOf(v)) }) {
             if (header != null) {
                 item {
                     Column(Modifier.padding(16.dp)) {
@@ -350,10 +359,7 @@ fun PlaylistScreen(vm: AppViewModel, route: Route.Playlist) {
                         )
                         Spacer(Modifier.height(12.dp))
                         Button(
-                            onClick = {
-                                val list = paged.items.filterIsInstance<VideoItem>()
-                                if (list.isNotEmpty()) actions.playList(list, 0)
-                            },
+                            onClick = { playFrom(paged.items.filterIsInstance<VideoItem>(), 0) },
                             modifier = Modifier.fillMaxWidth(),
                             colors = ButtonDefaults.buttonColors(
                                 containerColor = MaterialTheme.colorScheme.onSurface,

@@ -85,6 +85,12 @@ fun AzApp(vm: AppViewModel, player: Player?, inPip: Boolean) {
                     vm.watchExpanded = true
                 }
             },
+            appendToQueue = { anchor, list ->
+                // Skip it if the user has started something else in the meantime.
+                if (player != null && player.mediaItemCount > 0 && player.getMediaItemAt(0).mediaId == anchor) {
+                    player.addMediaItems(list.map { it.toMediaItem() })
+                }
+            },
             playNext = { v ->
                 withPlayer { p ->
                     if (p.mediaItemCount == 0) {
@@ -154,7 +160,9 @@ fun AzApp(vm: AppViewModel, player: Player?, inPip: Boolean) {
             vm.loadDetails(it.mediaId)
         }
     }
-    LaunchedEffect(current == null) { if (current == null) vm.watchExpanded = false }
+    // Close the watch page only when the queue is really empty. While the app is in the background
+    // there is no player connection (state == null): keep the page open for when the app comes back.
+    LaunchedEffect(state, current == null) { if (state != null && current == null) vm.watchExpanded = false }
     // A link shared from another app.
     LaunchedEffect(vm.playRequest, player) {
         val r = vm.playRequest
@@ -215,7 +223,7 @@ fun AzApp(vm: AppViewModel, player: Player?, inPip: Boolean) {
             fullscreen -> {
                 BackHandler { toggleFullscreen() }
                 VideoSurface(
-                    state!!, vm.audioOnly, fullscreen = true, showControls = true,
+                    state, vm.audioOnly, fullscreen = true, showControls = true,
                     onToggleFullscreen = { toggleFullscreen() }, onCollapse = null,
                     onSettings = { showSettings = true },
                     modifier = Modifier.fillMaxSize(),

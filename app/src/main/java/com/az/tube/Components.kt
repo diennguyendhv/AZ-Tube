@@ -53,6 +53,8 @@ import coil3.compose.AsyncImage
 class UiActions(
     val play: (VideoItem) -> Unit,
     val playList: (List<VideoItem>, Int) -> Unit,
+    /** Adds videos at the end of the queue, only while the queue still starts with [anchorUrl]. */
+    val appendToQueue: (anchorUrl: String, List<VideoItem>) -> Unit,
     val playNext: (VideoItem) -> Unit,
     val enqueue: (VideoItem) -> Unit,
     val openChannel: (url: String, name: String) -> Unit,
@@ -368,7 +370,11 @@ fun EntryList(
                     }
                 }
             }
-            if (paged.loading && paged.items.isNotEmpty()) item { Spinner() }
+            if (paged.loading && paged.items.isNotEmpty()) {
+                item { Spinner() }
+            } else if (paged.moreFailed && paged.items.isNotEmpty()) {
+                item { CenterMessage("Không tải thêm được", action = "Thử lại") { paged.retryMore() } }
+            }
         }
     }
 }

@@ -21,7 +21,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.annotation.OptIn
 import androidx.core.content.ContextCompat
+import androidx.media3.common.util.UnstableApi
 import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
 import com.google.common.util.concurrent.ListenableFuture
@@ -83,8 +85,10 @@ class MainActivity : ComponentActivity() {
         if (url != null) vm.openLink(url) else vm.submitSearch(text)
     }
 
+    @OptIn(UnstableApi::class)
     override fun onStart() {
         super.onStart()
+        Updater.inForeground = true
         val token = SessionToken(this, ComponentName(this, PlaybackService::class.java))
         val future = MediaController.Builder(this, token).buildAsync()
         controllerFuture = future
@@ -96,12 +100,19 @@ class MainActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         AppLock.skipNextLock = false
+        Updater.showPendingConfirm(this)
     }
 
     override fun onStop() {
+        Updater.inForeground = false
         AppLock.onLeave(isChangingConfigurations)
         // Screen off or app in the background: stop downloading video, keep the sound.
-        controller?.let { setVideoEnabled(it, false) }
+        // Also let go of the screen's video surface: it is destroyed now, and a decoder started on it
+        // later (when the app comes back) fails and leaves the picture black.
+        controller?.let {
+            setVideoEnabled(it, false)
+            it.clearVideoSurface()
+        }
         controller = null
         controllerFuture?.let { MediaController.releaseFuture(it) }
         controllerFuture = null

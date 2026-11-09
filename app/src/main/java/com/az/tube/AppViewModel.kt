@@ -38,8 +38,13 @@ class Paged(private val scope: CoroutineScope, private val loader: suspend () ->
         private set
     var error by mutableStateOf<String?>(null)
         private set
+
+    /** Loading the next page failed (e.g. network): the list shows "Thử lại" at the end. */
+    var moreFailed by mutableStateOf(false)
+        private set
     private var more: (suspend () -> PageResult)? = null
     private var job: Job? = null
+    private var restJob: Job? = null
 
     init {
         load(false)
@@ -49,10 +54,12 @@ class Paged(private val scope: CoroutineScope, private val loader: suspend () ->
 
     private fun load(isRefresh: Boolean) {
         job?.cancel()
+        restJob?.cancel()
         job = scope.launch {
             loading = true
             refreshing = isRefresh
             error = null
+            moreFailed = false
             try {
                 val r = loader()
                 items = r.items
@@ -69,20 +76,71 @@ class Paged(private val scope: CoroutineScope, private val loader: suspend () ->
         }
     }
 
+    /** Loads the next page. Automatic loading stops after a failure until [retryMore] is called. */
     fun loadMore() {
-        val next = more ?: return
-        if (loading) return
+        if (moreFailed) return
+        loadNext()
+    }
+
+    /**
+     * Loads the remaining pages (up to [max] items) in the background, then hands over everything
+     * that came in after [known]. Used by "play all" so the whole playlist ends up in the queue.
+     */
+    fun fetchRest(max: Int, known: Set<String>, onDone: (List<Entry>) -> Unit) {
+        // Only the latest "play" counts: an earlier one still loading would add the same videos twice.
+        restJob?.cancel()
+        restJob = scope.launch {
+            while (items.size < max) {
+                if (loading) {
+                    delay(200)
+                    continue
+                }
+                val next = more ?: break
+                loading = true
+                try {
+                    val r = next()
+                    val seen = items.map { it.url }.toHashSet()
+                    items = items + r.items.filter { seen.add(it.url) }
+                    more = r.more
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (_: Exception) {
+                    break
+                } finally {
+                    loading = false
+                }
+            }
+            onDone(items.filter { it.url !in known })
+        }
+    }
+
+    fun retryMore() {
+        moreFailed = false
+        loadNext()
+    }
+
+    private fun loadNext() {
+        if (more == null || loading) return
         job = scope.launch {
             loading = true
             try {
-                val r = next()
-                val seen = items.map { it.url }.toHashSet()
-                items = items + r.items.filter { seen.add(it.url) }
-                more = r.more
+                // A page made only of videos already shown adds nothing and wouldn't make the list
+                // scroll, so nothing would ask for the next one: go on to the next page (a few times).
+                var pagesLeft = 3
+                while (pagesLeft-- > 0) {
+                    val next = more ?: break
+                    val r = next()
+                    val seen = items.map { it.url }.toHashSet()
+                    val added = r.items.filter { seen.add(it.url) }
+                    items = items + added
+                    more = r.more
+                    if (added.isNotEmpty()) break
+                }
             } catch (e: CancellationException) {
                 throw e
             } catch (_: Exception) {
-                more = null
+                // Keep the page so it can be tried again.
+                moreFailed = true
             } finally {
                 loading = false
             }
@@ -197,6 +255,8 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     /** Handles a YouTube link: video, playlist or channel. */
     fun openLink(url: String) {
+        // A link shared from another app while the search box is open: close it so the result shows.
+        searchOpen = false
         viewModelScope.launch {
             try {
                 val yt = ServiceList.YouTube
@@ -209,8 +269,9 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                             thumb = InfoCache.get(url, 3_600_000L).thumbnails.pickImage(360),
                         )
                     }
-                    LinkType.PLAYLIST -> open(Route.Playlist(url, "Danh sách phát"))
-                    LinkType.CHANNEL -> open(Route.Channel(url, "Kênh"))
+                    // Minimize the video so the page that opens isn't hidden behind it.
+                    LinkType.PLAYLIST -> { watchExpanded = false; open(Route.Playlist(url, "Danh sách phát")) }
+                    LinkType.CHANNEL -> { watchExpanded = false; open(Route.Channel(url, "Kênh")) }
                     else -> message = "Link này chưa được hỗ trợ"
                 }
             } catch (e: CancellationException) {

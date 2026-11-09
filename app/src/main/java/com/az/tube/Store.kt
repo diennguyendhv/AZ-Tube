@@ -7,7 +7,7 @@ import org.json.JSONArray
 
 /**
  * Settings, subscriptions and (only when turned on) history, saved on the phone.
- * History and recommendations are off until you switch them on.
+ * Every switch can be turned off in the Bạn tab (turning history off also deletes it).
  */
 object Store {
     private lateinit var sp: SharedPreferences
@@ -25,7 +25,7 @@ object Store {
         get() = sp.getInt("max_quality", 720)
         set(v) = sp.edit { putInt("max_quality", v) }
 
-    // ----- Switches, all off by default -----
+    // ----- Switches, all on by default -----
     var watchHistoryOn: Boolean
         get() = sp.getBoolean("watch_history_on", true)
         set(v) = sp.edit { putBoolean("watch_history_on", v) }
@@ -34,12 +34,12 @@ object Store {
         get() = sp.getBoolean("search_history_on", true)
         set(v) = sp.edit { putBoolean("search_history_on", v) }
 
-    /** Recommended home feed, related videos, search suggestions. */
+    /** Home feed by topic (off: home shows only subscriptions). */
     var recommendationsOn: Boolean
         get() = sp.getBoolean("recommendations_on", true)
         set(v) = sp.edit { putBoolean("recommendations_on", v) }
 
-    /** Keep playing related videos after the queue ends (needs recommendations on). */
+    /** Keep playing videos from the same channel after the queue ends. */
     var autoplay: Boolean
         get() = sp.getBoolean("autoplay", true)
         set(v) = sp.edit { putBoolean("autoplay", v) }

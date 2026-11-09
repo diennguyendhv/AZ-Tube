@@ -19,9 +19,9 @@ object VietnameseText {
 
     const val ACCEPT_LANGUAGE = "vi-VN, vi;q=0.9"
 
-    private const val L = "([\"⁨])"
-    private const val R = "([\"⁩])"
-    private const val SP = "[  ]"
+    private const val L = "([\"\u2068])"
+    private const val R = "([\"\u2069])"
+    private const val SP = "[ \u00A0]"
     private val short = Regex("$L(\\d+(?:,\\d+)?)$SP(N|nghìn|Tr|triệu|T|tỷ)(?:$SP(lượt xem|người đăng ký|người đang xem))?$R")
     private val exact = Regex("$L(\\d{1,3}(?:\\.\\d{3})*)$SP(lượt xem|người đăng ký|người đang xem)$R")
     private val ago = Regex("$L(Đã phát trực tiếp |Công chiếu )?(\\d+)$SP(giây|phút|giờ|ngày|tuần|tháng|năm) trước$R")

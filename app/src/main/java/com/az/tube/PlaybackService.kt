@@ -83,7 +83,8 @@ class PlaybackService : MediaSessionService() {
             .build()
         player.addListener(PlayerListener(player))
 
-        StreamResolver.onResolved = { mainExecutor.execute { maybeAppendRelated() } }
+        // Handler, not mainExecutor: that one needs Android 9 and crashed on Android 8.
+        StreamResolver.onResolved = { main.post { maybeAppendRelated() } }
         connectivity.registerDefaultNetworkCallback(networkCallback)
         registerReceiver(screenOff, IntentFilter(Intent.ACTION_SCREEN_OFF))
 
@@ -196,13 +197,13 @@ class PlaybackService : MediaSessionService() {
                     waitingForNetwork = true
                     return
                 }
-                // Network is up but not working yet (just reconnected): try again a few times.
-                if (netRetries < 5) {
-                    netRetries++
-                    waitingForNetwork = true
-                    main.postDelayed({ resumeAfterNetwork() }, 3_000L * netRetries)
-                    return
-                }
+                // Network is up but not working yet (just reconnected, weak signal): keep trying,
+                // waiting a little longer each time (at most 30 s). Never skip the song.
+                netRetries++
+                if (netRetries == 5) toast("Mạng yếu. Vẫn đang thử phát tiếp bài này")
+                waitingForNetwork = true
+                main.postDelayed({ resumeAfterNetwork() }, (3_000L * netRetries).coerceAtMost(30_000L))
+                return
             }
             if (error.errorCode in PlaybackException.ERROR_CODE_DECODER_INIT_FAILED..PlaybackException.ERROR_CODE_DECODING_FORMAT_UNSUPPORTED) {
                 // The phone's video decoder couldn't start (e.g. busy right after the screen came back on).
